@@ -10,6 +10,9 @@ https://github.com/midinterlude/skidcleaner./releases/tag/skidcleaner
 ## ⚠️⚠️⚠️ WARNING ⚠️⚠️⚠️
 THIS SHIT IS VIBE CODED AS FUCK.
 
+
+
+
 ## Features
 
 ### 🧹 **Comprehensive Cleaning**
