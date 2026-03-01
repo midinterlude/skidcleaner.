@@ -11,6 +11,7 @@ https://github.com/midinterlude/skidcleaner./releases/tag/skidcleaner
 
 ## ⚠️⚠️⚠️ WARNING ⚠️⚠️⚠️
 - THIS SHIT IS VIBE CODED AS FUCK.
+- Half this shit is AI
 - Don't come after me with a torch and a pitchfork if some shit is fucked
 - anyways imma let chatgpt describe it
 
