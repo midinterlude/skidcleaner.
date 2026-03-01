@@ -7,7 +7,7 @@ A powerful Python script for cleaning Roblox-related files, registry entries, an
 Download here:
 https://github.com/midinterlude/skidcleaner./releases/tag/skidcleaner
 
-## WARNING
+## ⚠️⚠️⚠️ WARNING ⚠️⚠️⚠️
 THIS SHIT IS VIBE CODED AS FUCK.
 
 ## Features
