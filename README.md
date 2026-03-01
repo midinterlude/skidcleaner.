@@ -2,6 +2,8 @@
 
 A very overkill option on roblox alt ban evasion for people who want 0 compromizes on their accounts :3
 
+Everything here is designed with redundancy in mind
+
 A powerful Python script for cleaning Roblox-related files, registry entries, and temporary data, with advanced ban evasion capabilities for users who want zero compromises on their accounts.
 
 Download here:
