@@ -32,7 +32,7 @@ https://github.com/midinterlude/skidcleaner./releases/tag/skidcleaner
 - Complete cookie deletion
 - Network adapter management
 - Registry cleanup
-- Completely reinstalls roblox and removes any files or registeries linked to it
+- Completely reinstalls roblox and removes any files or registries linked to it
 
 ### ⚙️ **Advanced Configuration**
 - You are in control of everything it does
