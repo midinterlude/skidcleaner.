@@ -4,6 +4,9 @@ A very overkill option on roblox alt ban evasion for people who want 0 compromiz
 
 A powerful Python script for cleaning Roblox-related files, registry entries, and temporary data, with advanced ban evasion capabilities for users who want zero compromises on their accounts.
 
+Download here:
+https://github.com/midinterlude/skidcleaner./releases/tag/skidcleaner
+
 ## WARNING
 THIS SHIT IS VIBE CODED AS FUCK.
 
