@@ -48,12 +48,21 @@ https://github.com/midinterlude/skidcleaner./releases/tag/skidcleaner
 - download skidcleaner.exe and cleaner_config.json
 - put in the same folder and run
 
-### Python Installation
+### Advanced Installation
 
 1. Ensure Python 3.7+ is installed
-2. Install cleaner.py
-3. Run the script as Administrator (required for registry operations)
-4. Install dependencies automatically handled by script
+2. run the following command in command prompt
+   ```bash
+   python -m pip install pyinstaller
+   ```
+4. Install cleaner.py
+5. cd to the folder you have cleaner.py in
+6. now run
+   ```bash
+   pyinstaller cleaner.py --onefile
+   ```
+9. run your beautiful new exe file
+10. win
 
 ## Usage
 
