@@ -1,24 +1,24 @@
 # slate. - https://discord.gg/HQbG5NFAS3
  
-A packaged executable version of skidcleaner, a powerful tool for cleaning Roblox-related files and registry entries with advanced ban evasion capabilities.
+A packaged executable version of slate, a powerful tool for cleaning Roblox-related files and registry entries with advanced ban evasion capabilities.
 
  
 ## 🚀 Quick Start
  
 1. **Extract** the package to a directory of your choice
-2. **Run** `skidcleaner.exe` as Administrator (required for registry operations)
+2. **Run** `slate.exe` as Administrator (required for registry operations)
 3. The script will automatically install dependencies and clean your system
  
 ## 📁 Package Contents
  
-- `skidcleaner.exe` - Main cleaning executable (compiled with PyInstaller)
-- `skidcleaner.config.json` - Default configuration file
+- `slate.exe` - Main cleaning executable (compiled with PyInstaller)
+- `slate.config.json` - Default configuration file
 - `cacert.pem` - SSL certificate bundle for secure downloads
 - `README.md` - This file
  
 ## ⚙️ Configuration
  
-The script uses `skidcleaner.config.json` for settings. You can edit this file to customize behavior:
+The script uses `slate.config.json` for settings. You can edit this file to customize behavior:
  
 ### Key Settings
  
@@ -31,19 +31,59 @@ The script uses `skidcleaner.config.json` for settings. You can edit this file t
 ### Example Configuration
 ```json
 {
-  "general": {
-    "log_enabled": true,
-    "open_log_on_exit": true
-  },
-  "cleaning": {
-    "kill_processes": true,
-    "clean_folders": true,
-    "clean_registry": true
-  },
-  "roblox": {
-    "download_roblox": true,
-    "launch_roblox_on_exit": false
-  }
+    "general": {
+        "log_enabled": true,
+        "open_log_on_exit": false,
+        "capture_console_history": true,
+        "clear_screen_on_sections": false
+    },
+    "cleaning": {
+        "kill_processes": true,
+        "clean_folders": true,
+        "remove_cookies": true,
+        "flush_dns": true,
+        "clean_registry": false,
+        "clean_prefetch": false,
+        "restart_explorer": false
+    },
+    "roblox": {
+        "download_roblox": false,
+        "launch_roblox_on_exit": false,
+        "create_appsettings": false
+    },
+    "tools": {
+        "run_byebanasync": true
+    },
+    "paths": {
+        "temp_folders": [
+            "%temp%",
+            "%temp%/*",
+            "%localappdata%\\Temp"
+        ],
+        "roblox_folders": [
+            "%localappdata%\\Roblox",
+            "%appdata%\\Roblox",
+            "%appdata%\\Local\\Roblox"
+        ]
+    },
+    "processes": {
+        "roblox_processes": [
+            "RobloxPlayerBeta.exe",
+            "RobloxPlayerLauncher.exe"
+        ]
+    },
+    "registry": {
+        "roblox_keys": [
+            "HKEY_LOCAL_MACHINE\\SOFTWARE\\Roblox",
+            "HKEY_CURRENT_USER\\SOFTWARE\\Roblox"
+        ]
+    },
+    "advanced": {
+        "show_command_output": false,
+        "force_file_deletion": false,
+        "skip_confirmation_prompts": false,
+        "auto_restart_after_cleaning": false
+    }
 }
 ```
  
@@ -52,14 +92,14 @@ The script uses `skidcleaner.config.json` for settings. You can edit this file t
 ### Basic Usage
 ```bash
 # Run with default settings
-skidcleaner.exe
+slate.exe
 ```
  
 ### Configuration
-1. Run `webconfig.html` (any browser is fine)
+1. Run `config.html` (any browser is fine)
 2. Go through options and toggle what you want
-3. put the given file within the same folder as skidcleaner.exe & cacert.pem
-4. Run `skidcleaner.exe`
+3. put the given file within the same folder as slate.exe & cacert.pem
+4. Run `slate.exe`
 5. The script will use your custom configuration
  
 ## 🛡️ Features
@@ -93,7 +133,7 @@ skidcleaner.exe
  
 All operations are logged to:
 ```
-%temp%\Roblox_Cleaner_Log.txt
+%temp%\slate\slate.log
 ```
  
 The log includes console history, command outputs, file operations, and error messages.
@@ -123,13 +163,13 @@ The log includes console history, command outputs, file operations, and error me
    - Try using a VPN if downloads fail (We recommend Cloudflare Warp or ProtonVPN)
  
 3. **Configuration Not Loading**
-   - Ensure `skidcleaner.config.json` is in the same directory
+   - Ensure `slate.config.json` is in the same directory
    - Check JSON syntax with an online validator
  
 ## 👥 Support
  
 For issues and support:
-- Check the log file: `%temp%\Roblox_Cleaner_Log.txt`
+- Check the log file: `%temp%\slate\slate.log`
 - DM 'midinterlude' on Discord with the log file
 - additionally, you can join the discord server found [here](https://discord.gg/HQbG5NFAS3)
  
