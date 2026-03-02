@@ -134,6 +134,7 @@ The log includes console history, command outputs, file operations, and error me
 For issues and support:
 - Check the log file: `%temp%\Roblox_Cleaner_Log.txt`
 - DM 'midinterlude' on Discord with the log file
+- additionally, you can join the discord server found [here](https://discord.gg/HQbG5NFAS3)
  
 ---
 
