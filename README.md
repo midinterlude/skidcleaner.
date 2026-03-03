@@ -1,6 +1,6 @@
 <div align="center">
 
-# slate. - https://discord.gg/HQbG5NFAS3
+# Slate - https://discord.gg/HQbG5NFAS3
  
 A packaged executable version of slate, a powerful tool for cleaning Roblox-related files and registry entries with advanced ban evasion capabilities.
 
