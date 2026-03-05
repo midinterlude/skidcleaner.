@@ -110,11 +110,13 @@ slate.exe
 ### Configuration
 
 </div>
+<div align="left">
 1. Run `config.html` (any browser is fine)
 2. Go through options and toggle what you want
 3. put the given file within the same folder as slate.exe & cacert.pem
 4. Run `slate.exe`
 5. The script will use your custom configuration
+</div>
 
 <div align="center">
 
@@ -127,7 +129,7 @@ slate.exe
 ### Comprehensive Cleaning
 
 </div>
-
+<div align="left">
 - ✅ Kill Roblox processes safely
 - ✅ Clean temporary files and Roblox directories
 - ✅ Remove Roblox cookies and cache
@@ -136,43 +138,44 @@ slate.exe
 - ✅ Remove prefetch files
 - ✅ Optional Explorer restart
 - ✅ Removes any traces of files
-
+</div>
 <div align="center">
 
 ### Roblox Management
 
 </div>
+<div align="left">
 - ✅ Download fresh Roblox client from WEAO API
 - ✅ Auto-launch Roblox after cleaning
-
+</div>
 <div align="center">
 
 ### Advanced Ban Evasion
 
 </div>
-
+<div align="left">
 - ✅ **ByeBanAsync Python Port** - Imported ByeBanAsync into python for proven MAC address spoofing (credits to: centerepic)
 - ✅ **Registry cleanup** - Remove all Roblox traces
 - ✅ **Network adapter management** - Restart adapters after changes
- 
+ </div>
 
 <div align="center">
 
 ## 📋 Requirements
 
 </div>
-
+<div align="left">
 - **Windows 10/11**
 - **Administrator privileges** (required for registry and file operations)
 - **Internet connection** (for Roblox downloads)
- 
+ </div>
 
 <div align="center">
 
 ## 🔍 Logs
 
 </div>
-
+<div align="left">
 All operations are logged to:
 ```
 %temp%\slate\slate.log
@@ -180,25 +183,28 @@ All operations are logged to:
  
 The log includes console history, command outputs, file operations, and error messages.
 
+</div>
 <div align="center">
 
 ## ⚠️ Safety & Security
 
 </div>
-
+<div align="left">
 - **Administrator privileges required**
 - **Backup important data** before running
 - **Use at your own risk**
+</div>
 
 <div align="center">
 
 ## ⚠️ Warning
 
 </div>
-
+<div align="left">
 - **Make sure** to log out of any roblox accounts on your browser
 - **Clear your browsers's cookies** before running this application.
-
+ 
+</div>
 <div align="center">
 
 ## 🐛 Troubleshooting
@@ -210,7 +216,7 @@ The log includes console history, command outputs, file operations, and error me
 ### Common Issues
 
 </div>
-
+<div align="left">
 1. **"Access Denied" Errors**
    - Ensure you're running as Administrator
    - Close any open Roblox applications
@@ -223,13 +229,13 @@ The log includes console history, command outputs, file operations, and error me
 3. **Configuration Not Loading**
    - Ensure `slate.config.json` is in the same directory
    - Check JSON syntax with an online validator
-
+</div>
 <div align="center">
 
 ## 👥 Support
 
 </div>
-
+<div align="left">
 For issues and support:
 - Check the log file: `%temp%\slate\slate.log`
 - DM 'midinterlude' on Discord with the log file
@@ -238,3 +244,4 @@ For issues and support:
 ---
 
 https://github.com/midinterlude/slate
+</div>
