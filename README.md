@@ -146,6 +146,7 @@ This means that **Slate provides complete digital footprint elimination** coveri
 
 ### Prerequisites
 
+**For Python Users:**
 ```shell
 # Python 3.7 or higher
 python --version
@@ -154,7 +155,24 @@ python --version
 pip install requests tqdm
 ```
 
+**For EXE Users:**
+- Windows 10/11
+- Administrator privileges (recommended)
+- Internet connection for Roblox downloads
+- SSL certificate bundle (`cacert.pem`) for secure downloads
+
 ### Quick Setup
+
+#### Option 1: Using the Precompiled EXE (Recommended)
+
+1. **Download the EXE**: Get the latest `Slate.exe` from the [GitHub Releases](https://github.com/midinterlude/Slate/releases)
+2. **Download Configuration**: Visit [https://midinterlude.github.io/slate](https://midinterlude.github.io/slate) to generate your `slate.config.json`
+3. **Download SSL Certificate**: Get `cacert.pem` from the repository or [Mozilla's certificate bundle](https://curl.se/docs/caextract.html)
+4. **Place Files**: Put `Slate.exe`, `slate.config.json`, and `cacert.pem` in the same folder
+5. **Run as Administrator**: Right-click `Slate.exe` and select "Run as administrator"
+6. **Follow Prompts**: The application will guide you through the cleaning process
+
+#### Option 2: Using Python Script
 
 ```shell
 # Clone the repository
@@ -215,6 +233,16 @@ For power users, the configuration file supports granular control:
 
 ## File Structure
 
+### For EXE Users:
+```
+Slate/
+├── Slate.exe               # Precompiled executable
+├── slate.config.json       # Configuration file (download from web)
+├── cacert.pem              # SSL certificate bundle for secure downloads
+└── README.md               # This file
+```
+
+### For Python Users:
 ```
 Slate/
 ├── slate.py                # Main application script
