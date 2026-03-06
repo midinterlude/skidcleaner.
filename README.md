@@ -1,7 +1,7 @@
 <picture>
   <source
     width="100%"
-    srcset="./851x315.png"
+    srcset="./logos/slate851x315.png"
     media="(prefers-color-scheme: dark)"
   />
   <source
