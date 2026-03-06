@@ -1,7 +1,7 @@
 <picture>
   <source
     width="100%"
-    srcset="./docs/content/public/banner-dark-1280x640.avif"
+    srcset="./851x315.png"
     media="(prefers-color-scheme: dark)"
   />
   <source
