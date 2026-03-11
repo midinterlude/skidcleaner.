@@ -1,5 +1,5 @@
 # ===== IMPORTS AND GLOBALS =====
-import sys, subprocess, os, shutil, glob, json, stat, uuid, time, requests, threading, zipfile, urllib3, winreg, pyperclip, traceback, msvcrt
+import sys, subprocess, os, shutil, glob, json, stat, uuid, time, requests, threading, zipfile, urllib3, winreg, pyperclip, traceback, msvcrt, random, ctypes, sqlite3, tkinter as tk
 from tqdm import tqdm
 
 # ===== Initial Clear =====
@@ -8,12 +8,11 @@ os.system("cls")
 # ===== PATHS AND CONSTANTS =====
 script_dir = os.path.dirname(os.path.abspath(__file__))
 slate_dir = sys._MEIPASS if hasattr(sys, "_MEIPASS") else script_dir
-cert_path = (
-    os.path.join(os.path.dirname(sys.executable), "cacert.pem")
-    if hasattr(sys, "_MEIPASS")
-    else os.path.join(slate_dir, "cacert.pem")
-)
-LP = os.path.expandvars(r"%temp%\slate\slate.log")
+base_dir = os.path.dirname(sys.executable) if hasattr(sys, "_MEIPASS") else script_dir
+misc_dir = os.path.join(base_dir, "misc")
+cert_path = os.path.join(misc_dir, "cacert.pem")
+
+LP = os.path.join(misc_dir, "slate.log")
 PF = os.path.expandvars(r"C:\Windows\Prefetch\ROBLOX*.pf")
 REGS = [r"HKCU\Software\Roblox", r"HKLM\SOFTWARE\Roblox Corporation"]
 CK = os.path.expandvars(r"%appdata%\local\Roblox\Localstorage\RobloxCookies.dat")
@@ -23,13 +22,12 @@ PATHS = [
     r"%temp%/*",
     r"%localappdata%\Temp",
     r"%localappdata%\Roblox",
-    r"%appdata%\Roblox",
+    r"%appdata%\Roblox", 
     r"%appdata%\Local\Roblox",
 ]
-
-# ===== SETUP =====
-if os.path.exists(cert_path):
-    os.environ["SSL_CERT_FILE"] = cert_path
+VERSION = "2.0.0"
+VERSION_URL = "https://raw.githubusercontent.com/midinterlude/slate/main/version.txt"
+download_url = "https://github.com/midinterlude/slate/releases/latest"
 
 # ===== ERROR CLASSES =====
 class SlateError(Exception):
@@ -148,6 +146,45 @@ def auto_close():
     print("\n")
 
 
+# ===== SLATE BETA INTEGRATION (UI) =====
+def load_slate_settings():
+    default_settings = {"show_console": True}
+    
+    if hasattr(sys, "_MEIPASS"):
+        exe_dir = os.path.dirname(sys.executable)
+        settings_path = os.path.join(exe_dir, "slatesettings.json")
+    else:
+        settings_path = os.path.join(script_dir, "slatesettings.json")
+
+    if not os.path.exists(settings_path):
+        log("slatesettings.json not found, using default settings.")
+        return default_settings
+
+    try:
+        with open(settings_path, "r") as f:
+            settings = json.load(f)
+            return {**default_settings, **settings}
+    except (json.JSONDecodeError, IOError) as e:
+        log(f"Error reading slatesettings.json: {e}. Using default settings.")
+        return default_settings
+
+def hide_console():
+    try:
+        whnd = ctypes.windll.kernel32.GetConsoleWindow()
+        if whnd != 0:
+            ctypes.windll.user32.ShowWindow(whnd, 0)
+            log("Console hidden based on settings.")
+    except Exception as e:
+        log(f"Could not hide console window: {e}")
+
+def show_completion_popup():
+    try:
+        MB_ICONINFORMATION = 0x00000040
+        ctypes.windll.user32.MessageBoxW(0, "Slate has finished its operations", "Slate", MB_ICONINFORMATION)
+    except Exception as e:
+        print("\n\nSlate has finished its operations.\n")
+        log(f"Could not show completion popup: {e}")
+
 # ===== CONFIGURATION =====
 def load_cfg():
     log("Loading configuration file")
@@ -230,6 +267,30 @@ def ensure_deps():
 
 ensure_deps()
 
+def ensure_cert():
+    if not os.path.exists(misc_dir):
+        try:
+            os.makedirs(misc_dir, exist_ok=True)
+        except OSError:
+            pass
+
+    if not os.path.exists(cert_path):
+        print("Downloading required files (cacert.pem)...")
+        try:
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            response = requests.get("https://curl.se/ca/cacert.pem", verify=False, stream=True)
+            with open(cert_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            print("✅ Successfully downloaded cacert.pem")
+        except Exception as e:
+            print(f"❌ Failed to download cacert.pem: {e}")
+
+    if os.path.exists(cert_path):
+        os.environ["SSL_CERT_FILE"] = cert_path
+
+ensure_cert()
+
 
 def validate_cfg(config):
     log("Loading configuration file")
@@ -251,6 +312,8 @@ def validate_cfg(config):
         boolean_sections = ["general", "cleaning", "roblox", "tools", "advanced"]
         for section in boolean_sections:
             for key, value in config[section].items():
+                if section == "tools" and key in ["spoof_mac_mode", "spoof_mac_adapters"]:
+                    continue
                 if not isinstance(value, bool):
                     print(f"❌ Invalid boolean value in {section}.{key}: {value}")
                     return False
@@ -271,11 +334,11 @@ def validate_cfg(config):
 
 
 # ===== CLEANING OPERATIONS =====
-def clean_folders():
-    log("Starting configuration validation")
+def clean_folders(paths):
+    log("Starting folder cleaning")
 
     all_paths = []
-    for pattern in PATHS:
+    for pattern in paths:
         expanded = os.path.expandvars(pattern)
         matches = glob.glob(expanded)
         if not matches and not "*" in pattern and not "?" in pattern:
@@ -297,8 +360,48 @@ def clean_folders():
         file=sys.stdout,
         dynamic_ncols=True,
     ) as pbar:
+        sys_root = os.environ.get("SystemRoot", r"C:\Windows")
+        sys_root_abs = os.path.abspath(sys_root).lower()
+        protected_exact_paths = {
+            os.path.abspath(os.sep).lower(),
+            sys_root_abs,
+            os.path.abspath(os.environ.get("ProgramFiles", r"C:\Program Files")).lower(),
+            os.path.abspath(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")).lower(),
+            os.path.abspath(os.environ.get("USERPROFILE", "")).lower(),
+        }
+        protected_filenames = {
+            "ntdll.dll", "kernel32.dll", "user32.dll", "gdi32.dll",
+            "explorer.exe", "winlogon.exe", "csrss.exe", "lsass.exe", "smss.exe",
+            "ntoskrnl.exe"
+        }
+
         for path, original_pattern in all_paths:
             pbar.set_description(f"Cleaning {os.path.basename(path)}")
+
+            abs_path_lower = os.path.abspath(path).lower()
+            filename_lower = os.path.basename(abs_path_lower)
+            
+            skip = False
+            reason = ""
+            if abs_path_lower in protected_exact_paths:
+                skip = True
+                reason = "Exact match for a protected folder"
+            elif abs_path_lower.startswith(sys_root_abs + os.sep):
+                skip = True
+                reason = "Child of the Windows directory"
+            elif filename_lower in protected_filenames:
+                skip = True
+                reason = "Protected system file"
+
+            if skip:
+                log(f"  🛑 SKIPPING CRITICAL PATH ({reason}): {path}")
+                error_count += 1
+                error_details.append(
+                    {"path": path, "error": reason, "type": "protection"}
+                )
+                pbar.update(1)
+                continue
+
             try:
                 if os.path.isfile(path):
                     try:
@@ -410,15 +513,112 @@ def remove_cookies():
         log(f"  - Cookie file not found: {CK}")
 
 
+def remove_cookies_for_host(cookie_file: str, host: str):
+    if not os.path.exists(cookie_file):
+        return
+
+    conn = None
+    try:
+        conn = sqlite3.connect(cookie_file)
+        cursor = conn.cursor()
+
+        target_host = f'%{host}%'
+        
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tables = cursor.fetchall()
+        
+        table_name = None
+        if ('cookies',) in tables:
+            table_name = 'cookies'
+        elif ('moz_cookies',) in tables:
+            table_name = 'moz_cookies'
+        
+        if not table_name:
+            return
+
+        cursor.execute(f"PRAGMA table_info({table_name})")
+        columns = [column[1] for column in cursor.fetchall()]
+
+        host_column_name = None
+        if 'host_key' in columns:
+            host_column_name = 'host_key'
+        elif 'host' in columns:
+            host_column_name = 'host'
+        
+        if not host_column_name:
+            return
+
+        query_before = f"SELECT COUNT(*) FROM {table_name} WHERE {host_column_name} LIKE ?"
+        cursor.execute(query_before, (target_host,))
+        count_before = cursor.fetchone()[0]
+
+        if count_before == 0:
+            return
+
+        log(f"  Found {count_before} cookies for {host} in {os.path.basename(cookie_file)}. Deleting...")
+
+        delete_query = f"DELETE FROM {table_name} WHERE {host_column_name} LIKE ?"
+        cursor.execute(delete_query, (target_host,))
+
+        conn.commit()
+
+        cursor.execute(query_before, (target_host,))
+        count_after = cursor.fetchone()[0]
+        deleted_count = count_before - count_after
+
+        if deleted_count > 0:
+            log(f"  ✅ Removed {deleted_count} cookies from {os.path.basename(cookie_file)}")
+            try:
+                cursor.execute("VACUUM;")
+            except:
+                pass
+    except Exception as e:
+        log(f"  ⚠️  Error processing {os.path.basename(cookie_file)}: {e}")
+    finally:
+        if conn:
+            conn.close()
+
+def clean_browser_cookies():
+    log("Starting browser cookie cleaning")
+    
+    browsers = [
+        ("Chrome", "chrome.exe", r"%LOCALAPPDATA%\Google\Chrome\User Data\Default\Network\Cookies"),
+        ("Chrome (Legacy)", "chrome.exe", r"%LOCALAPPDATA%\Google\Chrome\User Data\Default\Cookies"),
+        ("Edge", "msedge.exe", r"%LOCALAPPDATA%\Microsoft\Edge\User Data\Default\Network\Cookies"),
+        ("Opera GX", "opera.exe", r"%APPDATA%\Opera Software\Opera GX Stable\Network\Cookies"),
+        ("Brave", "brave.exe", r"%LOCALAPPDATA%\BraveSoftware\Brave-Browser\User Data\Default\Network\Cookies"),
+        ("Zen Browser", "zen.exe", r"%APPDATA%\Zen\Profiles\*\cookies.sqlite"),
+        ("Zen Browser (Alt)", "zen.exe", r"%APPDATA%\zen-browser\Profiles\*\cookies.sqlite"),
+        ("Firefox", "firefox.exe", r"%APPDATA%\Mozilla\Firefox\Profiles\*.default-release\cookies.sqlite"),
+        ("Firefox (All Profiles)", "firefox.exe", r"%APPDATA%\Mozilla\Firefox\Profiles\*.default*\cookies.sqlite"),
+    ]
+
+    procs_to_kill = set(b[1] for b in browsers)
+    for proc in procs_to_kill:
+        run_cmd(["taskkill", "/f", "/im", proc], capture_output=True)
+
+    host_to_remove = "roblox.com"
+
+    for name, _, path_pattern in browsers:
+        expanded_pattern = os.path.expandvars(path_pattern)
+        files = glob.glob(expanded_pattern)
+        
+        if not files:
+            continue
+            
+        for file_path in files:
+            remove_cookies_for_host(file_path, host_to_remove)
+
+
 # ===== NETWORK OPERATIONS =====
 def gen_mac():
-    log("Starting cookie removal operation")
+    log("Generating random MAC address")
     mac_bytes = [0x02] + [random.randint(0, 255) for _ in range(5)]
     return "".join(f"{byte:02X}" for byte in mac_bytes)
 
 
 def list_adapters():
-    log("Generating random MAC address")
+    log("Listing network adapters")
     try:
 
         adapters = []
@@ -460,6 +660,7 @@ def list_adapters():
                                     "wan miniport",
                                     "tap-windows",
                                     "pseudo",
+                                    "kernel debug",
                                 ]
                             ):
                                 adapters.append(
@@ -474,9 +675,8 @@ def list_adapters():
                 except FileNotFoundError:
                     break
         return adapters
-    except ImportError:
-        log("[!!!] winreg module not available. Cannot list network adapters.")
-        log(f"Unexpected error in get_roblox_settings: {e}")
+    except ImportError as e:
+        log(f"[!!!] winreg module not available. Cannot list network adapters: {e}")
         return []
     except Exception as e:
         log(f"[!!!] Error listing network adapters: {e}")
@@ -499,57 +699,49 @@ def change_mac(adapter_id, mac_address):
             )
     except ImportError:
         raise Exception("winreg module not available")
-        log("winreg module not available")
     except Exception as e:
         raise Exception(f"Registry error: {e}")
-        log(f"Registry MAC change error: {e}")
 
 
 def restart_adapter(connection_name):
-    log(f"Changing MAC for adapter {adapter_id} to {mac_address}")
+    log(f"Restarting adapter: {connection_name}")
 
     log(f"[>] Disabling adapter: '{connection_name}'")
-    disable_result = subprocess.run(
-        [
-            "netsh",
-            "interface",
-            "set",
-            "interface",
-            f"name={connection_name}",
-            "admin=disable",
-        ],
-        capture_output=True,
-        text=True,
-    )
-    if disable_result.returncode != 0:
-        error_msg = disable_result.stderr.strip()
-        log(f"Network adapter listing error: {e}")
-        raise Exception(f"Failed to disable network adapter. Netsh output: {error_msg}")
+    disable_cmd = f'netsh interface set interface name="{connection_name}" admin=disable'
+    disable_result = run_cmd(disable_cmd, shell=True)
+    
+    if disable_result is None or disable_result.returncode != 0:
+        stderr = (disable_result.stderr or "").strip() if disable_result else "Command execution failed"
+        if "No more data is available" in stderr:
+            log(f"  ⚠️  Adapter '{connection_name}' could not be disabled (likely a virtual or protected adapter). Skipping restart.")
+            return
+        
+        error_msg = f"Failed to disable adapter '{connection_name}'. Output: {stderr}"
+        log(f"  - {error_msg}")
+        raise ProcessError(error_msg, operation="disable_adapter", details={"adapter": connection_name})
+
     time.sleep(2)
+    
     log(f"[>] Enabling adapter: '{connection_name}'")
-    enable_result = subprocess.run(
-        [
-            "netsh",
-            "interface",
-            "set",
-            "interface",
-            f"name={connection_name}",
-            "admin=enable",
-        ],
-        capture_output=True,
-        text=True,
-    )
-    if enable_result.returncode != 0:
-        error_msg = enable_result.stderr.strip()
-        log(f"Network adapter listing error: {e}")
-        raise Exception(f"Failed to enable network adapter. Netsh output: {error_msg}")
+    enable_cmd = f'netsh interface set interface name="{connection_name}" admin=enable'
+    enable_result = run_cmd(enable_cmd, shell=True)
+
+    if enable_result is None or enable_result.returncode != 0:
+        stderr = (enable_result.stderr or "").strip() if enable_result else "Command execution failed"
+        if "No more data is available" in stderr:
+            log(f"  ⚠️  Adapter '{connection_name}' could not be re-enabled. A manual restart might be needed.")
+            return
+
+        error_msg = f"Failed to enable adapter '{connection_name}'. Output: {stderr}"
+        log(f"  - {error_msg}")
+        raise ProcessError(error_msg, operation="enable_adapter", details={"adapter": connection_name})
 
 
-def bye_ban(wait=True):
-    log("Starting ByeBanAsync operation")
+def SpoofMAC(config, wait=True):
+    log("Starting MAC spoofing operation")
     try:
         log("\n" + "=" * 41)
-        log("ByeBanAsync v2.2 | credits to: centerepic")
+        log("Spoof | Based off of ByeBanAsync v2.2 | credits to: centerepic")
         log("=" * 41)
 
         user_profile = os.environ.get("USERPROFILE")
@@ -557,79 +749,91 @@ def bye_ban(wait=True):
             log("[!!!] Could not get USERPROFILE environment variable.")
             return
         log("\n--- MAC Address Spoofing ---")
-        change_mac = (
-            input("[?] Do you want to attempt to change your MAC address? (y/n): ")
-            .strip()
-            .lower()
-        )
-        if change_mac == "y":
-            adapters = list_adapters()
-            if not adapters:
-                log("[!] No suitable network adapters found to modify.")
-            else:
-                log("\n[i] Available network adapters:")
+
+        tools_config = config.get("tools", {})
+        mode = tools_config.get("spoof_mac_mode", "all")
+ 
+        adapters = list_adapters()
+        if not adapters:
+            log("[!] No suitable network adapters found to modify.")
+            return
+
+        target_adapters = []
+
+        if mode == "manual":
+            selected_adapter_names = tools_config.get("spoof_mac_adapters", [])
+            if not selected_adapter_names:
+                log(
+                    "[!] MAC spoof mode is 'manual' but no adapters specified in 'spoof_mac_adapters' config. Skipping."
+                )
+                return
+
+            log(
+                f"[i] Will attempt to spoof adapters specified in config: {', '.join(selected_adapter_names)}"
+            )
+
+            for adapter in adapters:
+                if (
+                    adapter["connection_name"] in selected_adapter_names
+                    or adapter["description"] in selected_adapter_names
+                ):
+                    target_adapters.append(adapter)
+
+            if not target_adapters:
+                log(
+                    f"[!] None of the specified adapters could be found on this system: {', '.join(selected_adapter_names)}"
+                )
+                log("[i] Available adapters:")
                 for i, adapter in enumerate(adapters, 1):
-                    log(f"  [{i}] {adapter['description']}")
-                    log(f"     └─ Connection Name: '{adapter['connection_name']}'")
-
-                selected_adapter = None
-                while True:
-                    try:
-                        choice = input(
-                            "\n[?] Enter the number of the adapter to change (or 'skip' to skip): "
-                        ).strip()
-                        if choice.lower() == "skip":
-                            log("[i] Skipping MAC address change.")
-                            break
-                        try:
-                            choice_num = int(choice)
-                            if 1 <= choice_num <= len(adapters):
-                                selected_adapter = adapters[choice_num - 1]
-                                break
-                            else:
-                                log(
-                                    "[!] Invalid selection. Please enter a number from the list."
-                                )
-                        except ValueError:
-                            log(
-                                "[!] Invalid selection. Please enter a number from the list."
-                            )
-                    except (KeyboardInterrupt, EOFError):
-                        log("[i] Cancelled adapter selection.")
-                        break
-
-                if selected_adapter:
-                    random_mac = gen_mac()
                     log(
-                        f"[>] Attempting to set MAC for adapter: '{selected_adapter['description']}' (ID: {selected_adapter['id']})..."
+                        f"  - Description: {adapter['description']}, Connection Name: '{adapter['connection_name']}'"
                     )
-                    try:
-                        change_mac(selected_adapter["id"], random_mac)
-                        log("[√] Successfully updated registry for MAC address.")
-                        log(
-                            f"[>] Attempting to restart network adapter '{selected_adapter['connection_name']}' to apply changes..."
-                        )
-                        try:
-                            restart_adapter(selected_adapter["connection_name"])
-                            log(
-                                f"[√] Network adapter '{selected_adapter['connection_name']}' restarted. MAC address change should now be active."
-                            )
-                            log("[i] Verify with 'ipconfig /all' or 'getmac'.")
-                        except Exception as e:
-                            log(
-                                f"[!!!] Error restarting network adapter: {e}. You may need to do this manually or reboot."
-                            )
-                            log(f"Adapter restart error: {e}")
-                    except Exception as e:
-                        log(f"[!!!] Error changing MAC address in registry: {e}")
-                        log(f"Registry MAC change error: {e}")
+                return
+        elif mode == "all":
+            target_adapters = adapters
         else:
-            log("[i] Skipping MAC address change.")
-        log("\n[...] ByeBanAsync completed!")
-    except Exception as e:
-        log(f"[!!!] Error in ByeBanAsync: {e}")
-        log(f"ByeBanAsync error: {e}")
+            log(f"[i] Invalid 'spoof_mac_mode' in config: '{mode}'. Skipping.")
+            return
 
+        for adapter in target_adapters:
+            random_mac = gen_mac()
+            log(
+                f"\n[>] Attempting to set MAC for adapter: '{adapter['description']}' (ID: {adapter['id']})..."
+            )
+            try:
+                change_mac(adapter["id"], random_mac)
+                log("[√] Successfully updated registry for MAC address.")
+                log(
+                    f"[>] Attempting to restart network adapter '{adapter['connection_name']}' to apply changes..."
+                )
+                try:
+                    restart_adapter(adapter["connection_name"])
+                    log(
+                        f"[√] Network adapter '{adapter['connection_name']}' restarted."
+                    )
+                except Exception as e:
+                    log(
+                        f"[!!!] Error restarting network adapter: {e}. You may need to do this manually or reboot."
+                    )
+                    log(f"Adapter restart error: {e}")
+            except Exception as e:
+                log(f"[!!!] Error changing MAC address in registry: {e}")
+                log(f"Registry MAC change error: {e}")
+
+        log("\n[...] MAC Address Spoofing completed!")
+    except Exception as e:
+        log(f"[!!!] Error in MAC Address Spoofing: {e}")
+        log(f"MAC Address Spoofing error: {e}")
+
+def wait_for_connection(timeout=30):
+    start = time.time()
+    while time.time() - start < timeout:
+        try:
+            requests.get("http://www.google.com", timeout=2)
+            return True
+        except:
+            time.sleep(0.5)
+    return False
 
 # ===== UTILITY FUNCTIONS =====
 def run_cmd(cmd, capture_output=True, shell=False):
@@ -700,12 +904,81 @@ def launch_roblox():
         log(f"Log open error: {e}")
         return False
 
+class CustomProgressBar:
+    def __init__(
+        self,
+        total,
+        desc,
+        package_index,
+        total_packages,
+        config=None,
+    ):
+        self.total = total
+        self.desc = desc
+        self.current = 0
+        self.last_update = 0
+        self.package_index = package_index
+        self.total_packages = total_packages
+        self.config = config
 
-# ===== ROBLOX OPERATIONS =====
+    def update(self, chunk_size):
+        self.current += chunk_size
+        if (
+            self.current - self.last_update > 1024 * 1024
+            or self.current >= self.total
+        ):
+            percentage = (
+                (self.current / self.total) * 100
+                if self.total > 0
+                else 0
+            )
+            overall_percentage = (
+                (self.package_index + (percentage / 100))
+                / self.total_packages
+            ) * 100
+
+            bar_length = 50
+            filled_length = int(bar_length * percentage / 100)
+            bar = "█" * filled_length + "░" * (
+                bar_length - filled_length
+            )
+
+            overall_filled = int(
+                bar_length * overall_percentage / 100
+            )
+            overall_bar = "█" * overall_filled + "░" * (
+                bar_length - overall_filled
+            )
+
+            print(
+                f"\r{self.desc} {percentage:.1f}% |{bar}|\n\n  Total Progress {overall_percentage:.1f}% |{overall_bar}|",
+                end="",
+                flush=True,
+            )
+            if self.config:
+                log(f"")
+            self.last_update = self.current
+
+    def close(self):
+        bar_length = 50
+        overall_percentage = (
+            (self.package_index + 1) / self.total_packages
+        ) * 100
+        overall_filled = int(
+            bar_length * overall_percentage / 100
+        )
+        overall_bar = "█" * overall_filled + "░" * (
+            bar_length - overall_filled
+        )
+        print(
+            f"\r{self.desc} 100.0% |{'█' * bar_length}|\n\n  Total Progress {overall_percentage:.1f}% |{overall_bar}|",
+            flush=True,
+        )
+
 def get_roblox_settings(config=None):
-    log("Restarting network adapter")
+    log("Fetching Roblox client settings")
     try:
-
+        version_hash = ""
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
         use_past_versions = (
@@ -717,18 +990,12 @@ def get_roblox_settings(config=None):
         if use_past_versions:
             version_url = "https://weao.xyz/api/versions/past"
             log(f"Fetching past version info from: {version_url}")
-        else:
-            version_url = "https://weao.xyz/api/versions/current"
-            log(f"Fetching version info from: {version_url}")
-
-        headers = {"User-Agent": "WEAO-3PService/1.0"}
-        response = requests.get(version_url, headers=headers, verify=False)
-        response.raise_for_status()
-        version_data = response.json()
-        log("WEAO Version Response:")
-        log(json.dumps(version_data, indent=2))
-
-        if use_past_versions:
+            headers = {"User-Agent": "WEAO-3PService/1.0"}
+            response = requests.get(version_url, headers=headers, verify=False, timeout=15)
+            response.raise_for_status()
+            version_data = response.json()
+            log("WEAO Past Version Response:")
+            log(json.dumps(version_data, indent=2))
             if isinstance(version_data, list) and version_data:
                 version_hash = version_data[-1].get("Windows", "")
                 if not version_hash:
@@ -736,9 +1003,33 @@ def get_roblox_settings(config=None):
             else:
                 raise Exception("Invalid response format from past versions API")
         else:
-            version_hash = version_data.get("Windows", "")
+            try:
+                version_url = "https://weao.xyz/api/versions/current"
+                log(f"Fetching current version info from: {version_url}")
+                headers = {"User-Agent": "WEAO-3PService/1.0"}
+                response = requests.get(version_url, headers=headers, verify=False, timeout=10)
+                response.raise_for_status()
+                version_data = response.json()
+                log("WEAO Current Version Response:")
+                log(json.dumps(version_data, indent=2))
+                version_hash = version_data.get("Windows", "")
+            except (requests.RequestException, json.JSONDecodeError) as e:
+                log(f"  ⚠️  Failed to fetch from weao.xyz: {e}. Falling back to official Roblox endpoint.")
+
+            # Fallback to official Roblox endpoint if WEAO fails or doesn't provide a hash
             if not version_hash:
-                raise Exception("No Windows version found in WEAO response")
+                version_url = "https://clientsettings.roblox.com/v1/client-version/WindowsPlayer"
+                log(f"Fetching version info from official endpoint: {version_url}")
+                headers = {"User-Agent": "Roblox/WinInet"}
+                response = requests.get(version_url, headers=headers, verify=False, timeout=10)
+                response.raise_for_status()
+                version_data = response.json()
+                log("Official Roblox Version Response:")
+                log(json.dumps(version_data, indent=2))
+                version_hash = version_data.get("clientVersionUpload")
+
+        if not version_hash:
+            raise DownloadError("Could not determine Roblox version from any available source.", operation="get_roblox_settings")
 
         log(f"Found Windows version: {version_hash}")
         base_hash = version_hash.replace("version-", "")
@@ -802,77 +1093,6 @@ def get_roblox_settings(config=None):
                     total_size = int(response.headers.get("content-length", 0))
                     with open(temp_file, "wb") as f:
 
-                        class CustomProgressBar:
-                            def __init__(
-                                self,
-                                total,
-                                desc,
-                                package_index,
-                                total_packages,
-                                config=None,
-                            ):
-                                self.total = total
-                                self.desc = desc
-                                self.current = 0
-                                self.last_update = 0
-                                self.package_index = package_index
-                                self.total_packages = total_packages
-                                self.config = config
-
-                            def update(self, chunk_size):
-                                self.current += chunk_size
-                                if (
-                                    self.current - self.last_update > 1024 * 1024
-                                    or self.current >= self.total
-                                ):
-                                    percentage = (
-                                        (self.current / self.total) * 100
-                                        if self.total > 0
-                                        else 0
-                                    )
-                                    overall_percentage = (
-                                        (self.package_index + (percentage / 100))
-                                        / self.total_packages
-                                    ) * 100
-
-                                    bar_length = 50
-                                    filled_length = int(bar_length * percentage / 100)
-                                    bar = "█" * filled_length + "░" * (
-                                        bar_length - filled_length
-                                    )
-
-                                    overall_filled = int(
-                                        bar_length * overall_percentage / 100
-                                    )
-                                    overall_bar = "█" * overall_filled + "░" * (
-                                        bar_length - overall_filled
-                                    )
-
-                                    print(
-                                        f"\r{self.desc} {percentage:.1f}% |{bar}|\n\n  Total Progress {overall_percentage:.1f}% |{overall_bar}|",
-                                        end="",
-                                        flush=True,
-                                    )
-                                    if self.config:
-                                        log(f"")
-                                    self.last_update = self.current
-
-                            def close(self):
-                                bar_length = 50
-                                overall_percentage = (
-                                    (self.package_index + 1) / self.total_packages
-                                ) * 100
-                                overall_filled = int(
-                                    bar_length * overall_percentage / 100
-                                )
-                                overall_bar = "█" * overall_filled + "░" * (
-                                    bar_length - overall_filled
-                                )
-                                print(
-                                    f"\r{self.desc} 100.0% |{'█' * bar_length}|\n\n  Total Progress {overall_percentage:.1f}% |{overall_bar}|",
-                                    flush=True,
-                                )
-
                         file_pbar = CustomProgressBar(
                             total_size,
                             f"  {package}",
@@ -918,12 +1138,8 @@ def get_roblox_settings(config=None):
                         log(f"ZIP extraction error: {e}")
                     try:
                         os.remove(temp_file)
-                    except:
-                        time.sleep(0.1)
-                        try:
-                            os.remove(temp_file)
-                        except:
-                            pass
+                    except OSError as e:
+                        log(f"  ⚠️  Could not remove temporary file {temp_file}: {e}")
                 except requests.RequestException as e:
                     error_msg = f"Failed to download {package}: {e}"
                     log(f"  ❌ {error_msg}")
@@ -978,14 +1194,12 @@ def get_roblox_settings(config=None):
         return f"https://setup.roblox.com/version-{base_hash}"
     except DownloadError:
         raise
-        log("DownloadError caught in get_roblox_settings")
     except requests.RequestException as e:
-        raise DownloadError(
-            f"Network error while fetching Roblox client settings: {e}",
+        raise NetworkError(
+            f"Network error while fetching Roblox version info: {e}",
             operation="fetch_version_info",
             details={"url": version_url},
         )
-        log("Starting Roblox client download operation")
     except Exception as e:
         raise DownloadError(
             f"Unexpected error in get_roblox_client_settings: {e}",
@@ -995,7 +1209,42 @@ def get_roblox_settings(config=None):
         log(f"Network error in get_roblox_settings: {e}")
 
 
+def check_for_updates():
+    log("Checking for updates...")
+    try:
+        response = requests.get(VERSION_URL, timeout=5)
+        if response.status_code == 200:
+            remote_version = response.text.strip()
+            if remote_version != VERSION:
+                print(f"\n[!] New version available: {remote_version} (Current: {VERSION})")
+                print(f"Please download the latest version from: {download_url}")
+                try:
+                    pyperclip.copy(download_url)
+                    print("(Link copied to clipboard)")
+                except Exception:
+                    pass
+                print("\n")
+                time.sleep(2)
+    except Exception as e:
+        log(f"Update check failed: {e}")
+
+def is_admin():
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
+
 def main():
+    global LOG
+
+    slate_settings = load_slate_settings()
+    if not slate_settings.get("show_console", True):
+        hide_console()
+
+    if not is_admin():
+        print("Administrator privileges required. Attempting to relaunch...")
+        ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+        sys.exit(0)
 
     log("Starting Slate main function")
     config = load_cfg()
@@ -1020,7 +1269,7 @@ def main():
 ▐   ▄████████▀  █████▄▄██   ███    █▀     ▄████▀     ██████████   ▌
 ▐               ▀                                                 ▌
 ▐▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▌
- by: midinterlude (logs can be found in %temp%\\slate\\slate.log)
+ by: midinterlude (logs can be found in the misc folder)
  """
 
     def title(cfg=None, debug_mode=False):
@@ -1033,7 +1282,9 @@ def main():
         print(BANNER)
 
     title(config)
-    print(" Slate - Roblox Cleaning Tool")
+    print(f"Slate v{VERSION} - Roblox Fingerprint Scrubber")
+    
+    check_for_updates()
 
     LOG = config["general"]["log_enabled"]
     OPEN_LOG = config["general"]["open_log_on_exit"]
@@ -1053,73 +1304,30 @@ def main():
         except Exception:
             pass
 
-    while True:
-        proceed = (
-            input(
-                '\n This script will clean every file linked to roblox and may restart your computer.\n Type "confirm" to proceed or "info" for additional information: '
-            )
-            .strip()
-            .lower()
-        )
-        if proceed == "info":
-            print("\n" + "=" * 60)
-            print("SLATE - CONFIGURATION SUMMARY")
-            print("=" * 60)
-            print(f"Configuration file: slate.config.json")
-            print(f"Profile: {config.get('profile', 'custom')}")
-            print(f"Log file: {LP}")
-            print("\nCleaning Operations:")
-            print(
-                f"  • Process Termination: {'Enabled' if config.get('cleaning', {}).get('kill_processes', False) else 'Disabled'}"
-            )
-            print(
-                f"  • Folder Cleaning: {'Enabled' if config.get('cleaning', {}).get('clean_folders', False) else 'Disabled'}"
-            )
-            print(
-                f"  • Cookie Removal: {'Enabled' if config.get('cleaning', {}).get('remove_cookies', False) else 'Disabled'}"
-            )
-            print(
-                f"  • DNS Cache Flush: {'Enabled' if config.get('cleaning', {}).get('flush_dns', False) else 'Disabled'}"
-            )
-            print(
-                f"  • Registry Cleanup: {'Enabled' if config.get('cleaning', {}).get('clean_registry', False) else 'Disabled'}"
-            )
-            print(
-                f"  • Prefetch Cleanup: {'Enabled' if config.get('cleaning', {}).get('clean_prefetch', False) else 'Disabled'}"
-            )
-            print(
-                f"  • Explorer Restart: {'Enabled' if config.get('cleaning', {}).get('restart_explorer', False) else 'Disabled'}"
-            )
-            print(f"\nRoblox Operations:")
-            print(
-                f"  • Download Roblox: {'Enabled' if config.get('roblox', {}).get('download_roblox', False) else 'Disabled'}"
-            )
-            print(
-                f"  • Use Past Versions: {'Enabled' if config.get('roblox', {}).get('use_past_versions', False) else 'Disabled'}"
-            )
-            print(
-                f"  • Launch Roblox: {'Enabled' if config.get('roblox', {}).get('launch_roblox_on_exit', False) else 'Disabled'}"
-            )
-            print(
-                f"  • Create AppSettings: {'Enabled' if config.get('roblox', {}).get('create_appsettings', False) else 'Disabled'}"
-            )
-            print(f"\nAdvanced Options:")
-            print(
-                f"  • Auto Restart: {'Enabled' if config.get('advanced', {}).get('auto_restart_after_cleaning', False) else 'Disabled'}"
-            )
-            print(
-                f"  • Skip Prompts: {'Enabled' if config.get('advanced', {}).get('skip_confirmation_prompts', False) else 'Disabled'}"
-            )
-            print(
-                f"  • Force Deletion: {'Enabled' if config.get('advanced', {}).get('force_file_deletion', False) else 'Disabled'}"
-            )
-            print("=" * 60)
+    print("\n" + "=" * 60)
+    print("SLATE - CONFIGURATION SUMMARY")
+    print("=" * 60)
+    print(f"Configuration file: slate.config.json")
+    print(f"Profile: {config.get('profile', 'custom')}")
+    print(f"Log file: {LP}")
+    
+    for section, settings in config.items():
+        if section in ["paths", "processes", "registry"]:
             continue
-        elif proceed in ["confirm", "yes", "y"]:
-            break
+
+        print(f"\n{section.replace('_', ' ').title()} Options:")
+        if isinstance(settings, dict):
+            for key, value in settings.items():
+                if isinstance(value, bool):
+                    status = "[+]" if value else "[-]"
+                    display_key = key.replace('_', ' ').title()
+                    print(f"  {status} {display_key}")
         else:
-            print("Cancelling operation.")
-            return
+            print(f"  - Section '{section}' has a non-standard format.")
+
+    print("=" * 60)
+    print("\nStarting in 5 seconds...")
+    time.sleep(5)
     errors = []
     operation_start_time = {}
 
@@ -1133,7 +1341,7 @@ def main():
         if operation_name in operation_start_time:
             duration = time.time() - operation_start_time[operation_name]
             if success:
-                log(f"{operation_name} completed successfully in {duration:.2f}s")
+                log(f"{operation_name} completed in {duration:.2f}s")
             else:
                 log(f"{operation_name} failed after {duration:.2f}s: {error_msg}")
 
@@ -1150,7 +1358,7 @@ def main():
         if config["cleaning"]["clean_folders"]:
             log_op_start("Folder cleaning")
             try:
-                clean_folders()
+                clean_folders(PATHS)
                 log_op_end("Folder cleaning")
             except FileOperationError as e:
                 log_op_end("Folder cleaning", False, str(e))
@@ -1164,6 +1372,14 @@ def main():
             except FileOperationError as e:
                 log_op_end("Cookie removal", False, str(e))
                 errors.append(f"Cookie removal failed: {e}")
+        if config["cleaning"].get("clean_browser_cookies", False):
+            log_op_start("Browser cookie cleaning")
+            try:
+                clean_browser_cookies()
+                log_op_end("Browser cookie cleaning")
+            except Exception as e:
+                log_op_end("Browser cookie cleaning", False, str(e))
+                errors.append(f"Browser cookie cleaning failed: {e}")
         if config["cleaning"]["flush_dns"]:
             log_op_start("DNS cache flush")
             result = run_cmd(["ipconfig", "/flushdns"])
@@ -1232,15 +1448,20 @@ def main():
                 log_op_end("Prefetch cleanup")
             title(config)
 
-        if config["tools"]["run_byebanasync"]:
-            log_op_start("ByeBanAsync")
+        if config["tools"]["SpoofMAC"]:
+            log_op_start("SpoofMAC")
             try:
-                bye_ban(wait=True)
-                log_op_end("ByeBanAsync")
+                SpoofMAC(config, wait=True)
+                log_op_end("SpoofMAC")
+                log("  Waiting for network to stabilize...")
+                if wait_for_connection():
+                    log("  Network connection established.")
+                else:
+                    log("  ⚠️  Network connection check timed out.")
             except (NetworkError, ProcessError) as e:
-                log_op_end("ByeBanAsync", False, str(e))
-                errors.append(f"ByeBanAsync failed: {e}")
-                log(f"Detailed ByeBanAsync error info: {e.details}")
+                log_op_end("SpoofMAC", False, str(e))
+                errors.append(f"SpoofMAC failed: {e}")
+                log(f"Detailed SpoofMAC error info: {e.details}")
 
         if config["roblox"]["download_roblox"]:
             log_op_start("Roblox client download")
@@ -1261,6 +1482,8 @@ def main():
             for i, e in enumerate(errors, 1):
                 log(f"   {i}. {e}")
 
+        show_completion_popup()
+
         if config["advanced"]["auto_restart_after_cleaning"]:
             if OPEN_LOG and LOG:
                 log_thread = threading.Thread(target=open_log, daemon=True)
@@ -1268,29 +1491,17 @@ def main():
             run_cmd("shutdown /r /t 0", capture_output=False, shell=True)
         else:
             if config["roblox"]["launch_roblox_on_exit"]:
-                should_launch = True
-                if not config["advanced"]["skip_confirmation_prompts"]:
-                    launch_choice = input(
-                        "\nDo you want to launch Roblox now? (confirm): "
+                title(config)
+                log_op_start("Roblox launch")
+                if launch_roblox():
+                    log_op_end("Roblox launch")
+                    log("Roblox is starting up!")
+                else:
+                    log_op_end("Roblox launch", False, "Launch failed")
+                    log("Failed to launch Roblox automatically")
+                    log(
+                        "   You can launch it manually from the Roblox Player shortcut"
                     )
-                    should_launch = launch_choice.lower().strip() in [
-                        "confirm",
-                        "yes",
-                        "y",
-                    ]
-
-                if should_launch:
-                    title(config)
-                    log_op_start("Roblox launch")
-                    if launch_roblox():
-                        log_op_end("Roblox launch")
-                        log("Roblox is starting up!")
-                    else:
-                        log_op_end("Roblox launch", False, "Launch failed")
-                        log("Failed to launch Roblox automatically")
-                        log(
-                            "   You can launch it manually from the Roblox Player shortcut"
-                        )
             log(
                 "\nExiting without restarting. (You may want to restart manually to ensure all changes take effect.)"
             )
