@@ -50,7 +50,7 @@ Perhaps you've tried basic cleaners that only scratch the surface. They leave be
 
 ## Recent Updates
 
-- [Slate v3.0 Release](https://github.com/midinterlude/Slate) - Complete rewrite with enhanced error handling and logging
+- [Slate v2.0.0 Release](https://github.com/midinterlude/Slate) - Complete rewrite with enhanced error handling and logging
 - [ByeBanAsync Integration](https://github.com/midinterlude/Slate) - Added MAC address spoofing capabilities
 - [Configuration System](https://midinterlude.github.io/slate) - Web-based configuration generator for easy setup
 - [Enhanced Logging](https://github.com/midinterlude/Slate) - Detailed operation logging with error tracking
